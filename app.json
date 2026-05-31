@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Pawfect",
+    "slug": "pet-services",
+    "version": "2.0.0",
+    "backgroundColor": "#FFF7ED",
+    "primaryColor": "#F97316",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "name": "Pawfect",
+      "description": "Find & book trusted pet groomers near you",
+      "themeColor": "#F97316",
+      "lang": "en"
+    },
+    "android": {
+      "package": "com.redsitesoftware.petServices"
+    },
+    "ios": {
+      "bundleIdentifier": "com.redsitesoftware.petServices"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "84e73bac-f42f-4e2a-a031-3a6ee4526f32"
+      }
+    },
+    "owner": "zx10r06",
+    "description": "Find & book trusted pet groomers near you"
+  }
+}

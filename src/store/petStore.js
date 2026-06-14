@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useReducer } from 'react';
 
 const GROOMER_IMAGE_IDS = [
   '1587300003388-59208cc962cb',
@@ -536,7 +536,7 @@ const GROOMERS = RAW_GROOMERS.map((groomer, index) => ({
 }));
 
 const initState = {
-  phase: 'home',
+  phase: 'login',
   selectedGroomer: null,
   selectedService: null,
   filters: { petType: 'All', sortBy: 'Distance', priceMax: 'Any', available: 'Any' },
@@ -663,6 +663,15 @@ function reducer(state, action) {
         bookingData: INITIAL_BOOKING_DATA,
         confirmedBooking: null,
       };
+    case 'LOGOUT':
+      return {
+        ...state,
+        phase: 'login',
+        selectedGroomer: null,
+        selectedService: null,
+        bookingData: INITIAL_BOOKING_DATA,
+        confirmedBooking: null,
+      };
     default:
       return state;
   }
@@ -689,5 +698,7 @@ export {
 
 export function PetProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initState);
-  return <PetContext.Provider value={{ state, dispatch }}>{children}</PetContext.Provider>;
+  const logout = useCallback(() => dispatch({ type: 'LOGOUT' }), [dispatch]);
+  const value = useMemo(() => ({ state, dispatch, logout }), [logout, state]);
+  return <PetContext.Provider value={value}>{children}</PetContext.Provider>;
 }

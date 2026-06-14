@@ -1,4 +1,5 @@
 import React from 'react';
+import LoginScreen from '../screens/LoginScreen';
 import HomeScreen from '../screens/HomeScreen';
 import GroomerDetailScreen from '../screens/GroomerDetailScreen';
 import BookingScreen from '../screens/BookingScreen';
@@ -7,6 +8,10 @@ import { usePet } from '../store/petStore';
 
 export default function AppNavigator() {
   const { state } = usePet();
+
+  if (state.phase === 'login') {
+    return <LoginScreen />;
+  }
 
   if ((state.phase === 'groomer' || state.phase === 'booking') && !state.selectedGroomer) {
     return <HomeScreen />;

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import LoginScreen from '../screens/LoginScreen';
 import HomeScreen from '../screens/HomeScreen';
 import GroomerDetailScreen from '../screens/GroomerDetailScreen';
@@ -7,10 +7,14 @@ import ConfirmationScreen from '../screens/ConfirmationScreen';
 import { usePet } from '../store/petStore';
 
 export default function AppNavigator() {
-  const { state } = usePet();
+  const { state, dispatch } = usePet();
+
+  const handleLogin = useCallback(({ guest, token, user }) => {
+    dispatch({ type: 'COMPLETE_LOGIN', guest, token, user });
+  }, [dispatch]);
 
   if (state.phase === 'login') {
-    return <LoginScreen />;
+    return <LoginScreen onLogin={handleLogin} />;
   }
 
   if ((state.phase === 'groomer' || state.phase === 'booking') && !state.selectedGroomer) {

@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install --legacy-peer-deps
 COPY . .
-RUN npx expo export --platform web --output-dir dist
+RUN npx expo export --platform web --output-dir dist && cp web/auth-popup.html dist/auth-popup.html
 
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html

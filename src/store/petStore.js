@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useMemo, useReducer } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const GROOMER_IMAGE_IDS = [
   '1587300003388-59208cc962cb',
@@ -535,8 +536,13 @@ const GROOMERS = RAW_GROOMERS.map((groomer, index) => ({
   about: buildAbout(groomer),
 }));
 
+const JWT_KEY = 'alphinium_auth_token';
+
 const initState = {
   phase: 'login',
+  authToken: null,
+  authUser: null,
+  isGuest: false,
   selectedGroomer: null,
   selectedService: null,
   filters: { petType: 'All', sortBy: 'Distance', priceMax: 'Any', available: 'Any' },
@@ -595,6 +601,17 @@ function getGroomerImageUri(imageId, width = 800, quality = 80) {
 
 function reducer(state, action) {
   switch (action.type) {
+    case 'COMPLETE_LOGIN':
+      return {
+        ...state,
+        phase: 'home',
+        authToken: action.guest ? null : action.token ?? null,
+        authUser: action.guest ? null : action.user ?? null,
+        isGuest: Boolean(action.guest),
+        selectedGroomer: null,
+        selectedService: null,
+        confirmedBooking: null,
+      };
     case 'SET_PHASE':
       return { ...state, phase: action.phase };
     case 'SELECT_GROOMER': {
@@ -667,6 +684,9 @@ function reducer(state, action) {
       return {
         ...state,
         phase: 'login',
+        authToken: null,
+        authUser: null,
+        isGuest: false,
         selectedGroomer: null,
         selectedService: null,
         bookingData: INITIAL_BOOKING_DATA,
@@ -698,7 +718,13 @@ export {
 
 export function PetProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initState);
-  const logout = useCallback(() => dispatch({ type: 'LOGOUT' }), [dispatch]);
+  const logout = useCallback(async () => {
+    try {
+      await AsyncStorage.removeItem(JWT_KEY);
+    } finally {
+      dispatch({ type: 'LOGOUT' });
+    }
+  }, [dispatch]);
   const value = useMemo(() => ({ state, dispatch, logout }), [logout, state]);
   return <PetContext.Provider value={value}>{children}</PetContext.Provider>;
 }

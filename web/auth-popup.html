@@ -5,27 +5,49 @@
   <title>Sign in — FurSnips</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f0f1a;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh}
-    .card{background:#1a1a2e;border-radius:20px;padding:36px 28px;max-width:360px;width:92%;text-align:center}
-    h1{font-size:26px;font-weight:700;margin-bottom:6px}
-    p{color:#a0a0c0;font-size:14px;margin-bottom:28px}
-    button{width:100%;padding:15px;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px}
-    .fb{background:#1877F2;color:#fff}
-    .google{background:#fff;color:#3c4043;border:1px solid #dadce0}
-    .status{color:#a0a0c0;font-size:13px;margin-top:18px;min-height:22px}
-    .spinner{display:none;margin:16px auto;width:28px;height:28px;border:3px solid #2e2e4a;border-top-color:#6c63ff;border-radius:50%;animation:spin .7s linear infinite}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f0f1a;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:16px}
+    .card{background:#1a1a2e;border-radius:20px;padding:32px 28px;max-width:380px;width:100%}
+    h1{font-size:22px;font-weight:700;text-align:center;margin-bottom:4px}
+    .subtitle{color:#a0a0c0;font-size:13px;text-align:center;margin-bottom:24px}
+    .tabs{display:flex;border-bottom:1px solid #2e2e4a;margin-bottom:20px}
+    .tab{flex:1;padding:10px;text-align:center;font-size:14px;font-weight:600;cursor:pointer;color:#606080;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s}
+    .tab.active{color:#6c63ff;border-bottom-color:#6c63ff}
+    .panel{display:none}.panel.active{display:block}
+    input{width:100%;padding:13px 14px;background:#0f0f1a;border:1px solid #2e2e4a;border-radius:10px;color:#fff;font-size:15px;margin-bottom:10px;outline:none;transition:border-color .2s}
+    input:focus{border-color:#6c63ff}
+    input::placeholder{color:#404060}
+    .btn{width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px;transition:opacity .15s}
+    .btn:hover{opacity:.88}
+    .btn-primary{background:#6c63ff;color:#fff}
+    .btn-fb{background:#1877F2;color:#fff}
+    .btn-google{background:#fff;color:#3c4043;border:1px solid #dadce0}
+    .divider{display:flex;align-items:center;gap:10px;margin:14px 0}
+    .divider-line{flex:1;height:1px;background:#2e2e4a}
+    .divider-text{color:#404060;font-size:12px}
+    .status{color:#ff4d6d;font-size:13px;text-align:center;margin-top:8px;min-height:20px}
+    .status.ok{color:#4caf50}
+    .spinner{display:none;margin:12px auto;width:26px;height:26px;border:3px solid #2e2e4a;border-top-color:#6c63ff;border-radius:50%;animation:spin .7s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
+    .terms{font-size:11px;color:#404060;text-align:center;margin-top:14px;line-height:1.6}
   </style>
   <script>
     var STRAPI='https://auth.alphinium.io';
     window.fbAsyncInit=function(){FB.init({appId:'1278485494007756',cookie:true,xfbml:true,version:'v25.0'})};
     (function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(d.getElementById(id))return;js=d.createElement(s);js.id=id;js.src='https://connect.facebook.net/en_US/sdk.js';fjs.parentNode.insertBefore(js,fjs)}(document,'script','facebook-jssdk'));
-    function setStatus(msg){document.getElementById('status').textContent=msg}
+
+    function setStatus(msg,ok){var el=document.getElementById('status');el.textContent=msg;el.className='status'+(ok?' ok':'');}
     function setSpinner(on){document.getElementById('spinner').style.display=on?'block':'none'}
     function sendResult(data){
       if(window.opener){window.opener.postMessage({type:'alphinium-auth',jwt:data.jwt,user:data.user},'*');window.close();}
       else{window.location.href=window.location.origin+'?alphinium_jwt='+encodeURIComponent(data.jwt);}
     }
+
+    function switchTab(tab){
+      document.querySelectorAll('.tab').forEach(function(t){t.classList.toggle('active',t.dataset.tab===tab)});
+      document.querySelectorAll('.panel').forEach(function(p){p.classList.toggle('active',p.id==='panel-'+tab)});
+      setStatus('');
+    }
+
     function loginFacebook(){
       setSpinner(true);setStatus('');
       FB.login(function(r){
@@ -36,16 +58,53 @@
             .then(function(data){
               if(data.jwt){sendResult(data);}
               else{setSpinner(false);setStatus((data.error&&data.error.message)||'Login failed.');}
-            })
-            .catch(function(){setSpinner(false);setStatus('Network error. Try again.')});
-        } else {setSpinner(false);if(r.status!=='unknown')setStatus('Login cancelled.');}
+            }).catch(function(){setSpinner(false);setStatus('Network error. Try again.')});
+        }else{setSpinner(false);if(r.status!=='unknown')setStatus('Login cancelled.');}
       },{scope:'email,public_profile'});
     }
+
     function loginGoogle(){
-      setSpinner(true);setStatus('Logging in with Google…');
+      setSpinner(true);setStatus('');
       var redirect=encodeURIComponent(window.location.href+'?provider=google');
       window.location.href=STRAPI+'/api/connect/google?redirect='+redirect;
     }
+
+    function doLogin(e){
+      e.preventDefault();
+      var id=document.getElementById('login-email').value.trim();
+      var pw=document.getElementById('login-password').value;
+      if(!id||!pw){setStatus('Please enter your email and password.');return;}
+      setSpinner(true);setStatus('');
+      fetch(STRAPI+'/api/auth/local',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({identifier:id,password:pw})
+      }).then(function(r){return r.json()}).then(function(data){
+        setSpinner(false);
+        if(data.jwt){sendResult(data);}
+        else{setStatus((data.error&&data.error.message)||'Invalid email or password.');}
+      }).catch(function(){setSpinner(false);setStatus('Network error. Try again.');});
+    }
+
+    function doSignup(e){
+      e.preventDefault();
+      var name=document.getElementById('signup-name').value.trim();
+      var email=document.getElementById('signup-email').value.trim();
+      var pw=document.getElementById('signup-password').value;
+      var pw2=document.getElementById('signup-password2').value;
+      if(!name||!email||!pw){setStatus('Please fill in all fields.');return;}
+      if(pw!==pw2){setStatus('Passwords do not match.');return;}
+      if(pw.length<8){setStatus('Password must be at least 8 characters.');return;}
+      setSpinner(true);setStatus('');
+      fetch(STRAPI+'/api/auth/local/register',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({username:name,email:email,password:pw})
+      }).then(function(r){return r.json()}).then(function(data){
+        setSpinner(false);
+        if(data.jwt){sendResult(data);}
+        else{setStatus((data.error&&data.error.message)||'Registration failed. Try a different email.');}
+      }).catch(function(){setSpinner(false);setStatus('Network error. Try again.');});
+    }
+
     window.onload=function(){
       var params=new URLSearchParams(window.location.search);
       var provider=params.get('provider');
@@ -53,22 +112,52 @@
       if(provider==='google'&&access_token){
         setSpinner(true);setStatus('Completing sign in…');
         fetch(STRAPI+'/api/auth/google/callback?access_token='+access_token)
-          .then(function(res){return res.json()})
-          .then(function(data){
+          .then(function(r){return r.json()}).then(function(data){
+            setSpinner(false);
             if(data.jwt){sendResult(data);}
-            else{setSpinner(false);setStatus((data.error&&data.error.message)||'Login failed.');}
-          })
-          .catch(function(){setSpinner(false);setStatus('Network error. Try again.')});
+            else{setStatus((data.error&&data.error.message)||'Login failed.');}
+          }).catch(function(){setSpinner(false);setStatus('Network error. Try again.');});
       }
     }
   </script>
 </head><body>
   <div class="card">
     <h1>✂️ FurSnips</h1>
-    <p>Sign in to continue</p>
+    <p class="subtitle">Create an account or sign in</p>
     <div id="spinner" class="spinner"></div>
-    <button class="fb" onclick="loginFacebook()"><span>📘</span> Continue with Facebook</button>
-    <button class="google" onclick="loginGoogle()"><span style="font-size:20px">🔵</span> Continue with Google</button>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="login" onclick="switchTab('login')">Sign In</div>
+      <div class="tab" data-tab="signup" onclick="switchTab('signup')">Create Account</div>
+    </div>
+
+    <!-- Sign In panel -->
+    <div id="panel-login" class="panel active">
+      <form onsubmit="doLogin(event)">
+        <input id="login-email" type="email" placeholder="Email address" autocomplete="email" required/>
+        <input id="login-password" type="password" placeholder="Password" autocomplete="current-password" required/>
+        <button type="submit" class="btn btn-primary">Sign In</button>
+      </form>
+      <div class="divider"><div class="divider-line"></div><span class="divider-text">or continue with</span><div class="divider-line"></div></div>
+      <button class="btn btn-fb" onclick="loginFacebook()"><span>📘</span> Facebook</button>
+      <button class="btn btn-google" onclick="loginGoogle()"><span>🔵</span> Google</button>
+    </div>
+
+    <!-- Create Account panel -->
+    <div id="panel-signup" class="panel">
+      <form onsubmit="doSignup(event)">
+        <input id="signup-name" type="text" placeholder="Display name" autocomplete="name" required/>
+        <input id="signup-email" type="email" placeholder="Email address" autocomplete="email" required/>
+        <input id="signup-password" type="password" placeholder="Password (min 8 chars)" autocomplete="new-password" required/>
+        <input id="signup-password2" type="password" placeholder="Confirm password" autocomplete="new-password" required/>
+        <button type="submit" class="btn btn-primary">Create Account</button>
+      </form>
+      <div class="divider"><div class="divider-line"></div><span class="divider-text">or sign up with</span><div class="divider-line"></div></div>
+      <button class="btn btn-fb" onclick="loginFacebook()"><span>📘</span> Facebook</button>
+      <button class="btn btn-google" onclick="loginGoogle()"><span>🔵</span> Google</button>
+    </div>
+
     <p id="status" class="status"></p>
+    <p class="terms">By signing in you agree to our Terms of Service and Privacy Policy</p>
   </div>
 </body></html>

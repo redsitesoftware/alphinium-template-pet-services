@@ -88,7 +88,7 @@ export default function LoginScreen({ onLogin }) {
         </View>
         <View style={styles.buttons}>
           <TouchableOpacity style={styles.primaryBtn} onPress={handleSocialLogin}>
-            <Text style={styles.primaryBtnText}>🔐  Sign in with Google or Facebook</Text>
+            <Text style={styles.primaryBtnText}>Sign In / Create Account</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.guestBtn} onPress={handleGuest}>
             <Text style={styles.guestBtnText}>Continue as guest →</Text>
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
   appName: { fontSize: 32, fontWeight: '800', color: '#FFFFFF', marginBottom: 8 },
   tagline: { fontSize: 16, color: '#A0A0C0' },
   buttons: { gap: 12 },
-  primaryBtn: { backgroundColor: '#6C63FF', padding: 18, borderRadius: 14, alignItems: 'center' },
+  primaryBtn: { backgroundColor: '#0F766E', padding: 18, borderRadius: 14, alignItems: 'center' },
   primaryBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
   guestBtn: { padding: 16, alignItems: 'center' },
   guestBtnText: { color: '#606080', fontSize: 14 },

@@ -3,6 +3,7 @@
     "name": "Pawfect",
     "slug": "pet-services",
     "version": "2.0.0",
+    "scheme": "fursnips",
     "backgroundColor": "#FFF7ED",
     "primaryColor": "#F97316",
     "platforms": [

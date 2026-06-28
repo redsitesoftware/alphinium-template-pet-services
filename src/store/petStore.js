@@ -536,6 +536,17 @@ const GROOMERS = RAW_GROOMERS.map((groomer, index) => ({
   about: buildAbout(groomer),
 }));
 
+// Apply the same enrichment pipeline to API data so it is compatible with
+// everything that consumes GROOMERS (image URIs, timeSlots, about text).
+export function enrichGroomers(rawList) {
+  return rawList.map((groomer, index) => ({
+    ...groomer,
+    image: groomer.photo || GROOMER_IMAGE_IDS[index % GROOMER_IMAGE_IDS.length],
+    timeSlots: groomer.timeSlots || TIME_SLOT_SETS[index % TIME_SLOT_SETS.length],
+    about: groomer.about || buildAbout(groomer),
+  }));
+}
+
 const JWT_KEY = 'alphinium_auth_token';
 
 const initState = {
@@ -543,6 +554,8 @@ const initState = {
   authToken: null,
   authUser: null,
   isGuest: false,
+  groomers: GROOMERS,
+  groomersLoading: false,
   selectedGroomer: null,
   selectedService: null,
   filters: { petType: 'All', sortBy: 'Distance', priceMax: 'Any', available: 'Any' },
@@ -591,8 +604,8 @@ function getFilteredGroomers(groomers, filters, search) {
   return list;
 }
 
-function getGroomerById(id) {
-  return GROOMERS.find((groomer) => groomer.id === id) || null;
+function getGroomerById(id, groomers = GROOMERS) {
+  return groomers.find((groomer) => groomer.id === id) || null;
 }
 
 function getGroomerImageUri(imageId, width = 800, quality = 80) {
@@ -615,7 +628,7 @@ function reducer(state, action) {
     case 'SET_PHASE':
       return { ...state, phase: action.phase };
     case 'SELECT_GROOMER': {
-      const groomer = getGroomerById(action.id);
+      const groomer = getGroomerById(action.id, state.groomers);
       return {
         ...state,
         selectedGroomer: action.id,
@@ -647,7 +660,7 @@ function reducer(state, action) {
         bookingData: { ...state.bookingData, [action.key]: action.val },
       };
     case 'START_BOOKING': {
-      const groomer = getGroomerById(state.selectedGroomer);
+      const groomer = getGroomerById(state.selectedGroomer, state.groomers);
       return {
         ...state,
         phase: 'booking',
@@ -660,7 +673,7 @@ function reducer(state, action) {
       };
     }
     case 'COMPLETE_BOOKING': {
-      const groomer = getGroomerById(state.selectedGroomer);
+      const groomer = getGroomerById(state.selectedGroomer, state.groomers);
       return {
         ...state,
         phase: 'confirm',
@@ -692,6 +705,10 @@ function reducer(state, action) {
         bookingData: INITIAL_BOOKING_DATA,
         confirmedBooking: null,
       };
+    case 'GROOMERS_LOADING':
+      return { ...state, groomersLoading: action.loading };
+    case 'SET_GROOMERS':
+      return { ...state, groomers: action.groomers, groomersLoading: false };
     default:
       return state;
   }
@@ -711,6 +728,7 @@ export {
   GROOMERS,
   PET_SIZE_OPTIONS,
   PET_TYPE_OPTIONS,
+  enrichGroomers,
   getFilteredGroomers,
   getGroomerById,
   getGroomerImageUri,

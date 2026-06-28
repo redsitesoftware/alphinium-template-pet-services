@@ -53,7 +53,7 @@ function SelectorGroup({ label, options, value, onSelect, disabledValues = [] })
 
 export default function BookingScreen() {
   const { state, dispatch } = usePet();
-  const groomer = getGroomerById(state.selectedGroomer);
+  const groomer = getGroomerById(state.selectedGroomer, state.groomers);
 
   if (!groomer) {
     return null;

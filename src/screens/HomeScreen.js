@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
+  ActivityIndicator,
   Image,
   ImageBackground,
   Pressable,
@@ -9,7 +10,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { GROOMERS, getFilteredGroomers, getGroomerImageUri, usePet } from '../store/petStore';
+import { enrichGroomers, getFilteredGroomers, getGroomerImageUri, usePet } from '../store/petStore';
+import { getGroomers } from '../services/groomerApi';
 
 const PET_TYPE_OPTIONS = [
   { label: 'All', value: 'All' },
@@ -117,9 +119,36 @@ function GroomerCard({ groomer, onOpen }) {
 export default function HomeScreen() {
   const { state, dispatch } = usePet();
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadGroomers() {
+      dispatch({ type: 'GROOMERS_LOADING', loading: true });
+      try {
+        const apiGroomers = await getGroomers();
+        if (!cancelled && apiGroomers && apiGroomers.length > 0) {
+          dispatch({ type: 'SET_GROOMERS', groomers: enrichGroomers(apiGroomers) });
+        } else {
+          // API not configured or returned empty — keep static data
+          dispatch({ type: 'GROOMERS_LOADING', loading: false });
+        }
+      } catch {
+        // API unavailable — fall back to static data silently
+        if (!cancelled) {
+          dispatch({ type: 'GROOMERS_LOADING', loading: false });
+        }
+      }
+    }
+
+    loadGroomers();
+    return () => {
+      cancelled = true;
+    };
+  }, [dispatch]);
+
   const filteredGroomers = useMemo(
-    () => getFilteredGroomers(GROOMERS, state.filters, state.searchText),
-    [state.filters, state.searchText]
+    () => getFilteredGroomers(state.groomers, state.filters, state.searchText),
+    [state.groomers, state.filters, state.searchText]
   );
 
   return (
@@ -186,13 +215,20 @@ export default function HomeScreen() {
 
       <Text style={styles.resultsCount}>{filteredGroomers.length} groomers ready to pamper your pet</Text>
 
-      {filteredGroomers.map((groomer) => (
-        <GroomerCard
-          key={groomer.id}
-          groomer={groomer}
-          onOpen={() => dispatch({ type: 'SELECT_GROOMER', id: groomer.id })}
-        />
-      ))}
+      {state.groomersLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0F766E" />
+          <Text style={styles.loadingText}>Finding groomers near you…</Text>
+        </View>
+      ) : (
+        filteredGroomers.map((groomer) => (
+          <GroomerCard
+            key={groomer.id}
+            groomer={groomer}
+            onOpen={() => dispatch({ type: 'SELECT_GROOMER', id: groomer.id })}
+          />
+        ))
+      )}
 
       <View style={styles.footerCard}>
         <Text style={styles.footerTitle}>Why pet parents love Pawfect</Text>
@@ -462,8 +498,16 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
   },
-  footerCard: {
-    backgroundColor: '#E8FBF5',
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    color: '#285E55',
+    fontSize: 14,
+  },
+  footerCard: {    backgroundColor: '#E8FBF5',
     borderRadius: 22,
     padding: 18,
     borderWidth: 1,

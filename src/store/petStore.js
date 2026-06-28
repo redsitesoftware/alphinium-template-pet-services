@@ -681,9 +681,22 @@ function reducer(state, action) {
           groomer,
           service: state.selectedService,
           bookingData: state.bookingData,
+          booking_id: null,
+          confirmation_code: null,
         },
       };
     }
+    case 'SET_BOOKING_RESULT':
+      return {
+        ...state,
+        confirmedBooking: state.confirmedBooking
+          ? {
+              ...state.confirmedBooking,
+              booking_id: action.booking_id ?? null,
+              confirmation_code: action.confirmation_code ?? null,
+            }
+          : state.confirmedBooking,
+      };
     case 'RESET_BOOKING':
       return {
         ...state,

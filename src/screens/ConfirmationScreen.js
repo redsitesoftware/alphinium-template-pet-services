@@ -54,6 +54,12 @@ export default function ConfirmationScreen() {
         <Text style={styles.summaryLine}>Service: {booking.service?.name}</Text>
         <Text style={styles.summaryLine}>Time: {booking.bookingData?.time}</Text>
         <Text style={styles.summaryLine}>Pet name: {booking.bookingData?.petName || 'Your pet'}</Text>
+        {!!booking.booking_id && (
+          <Text style={styles.summaryLine}>Booking ID: {booking.booking_id}</Text>
+        )}
+        {!!booking.confirmation_code && (
+          <Text style={[styles.summaryLine, styles.summaryLineHighlight]}>Confirmation code: {booking.confirmation_code}</Text>
+        )}
       </View>
 
       <Pressable style={styles.primaryButton} onPress={() => dispatch({ type: 'RESET_BOOKING' })}>
@@ -122,6 +128,10 @@ const styles = StyleSheet.create({
     color: '#374151',
     fontSize: 15,
     marginBottom: 8,
+  },
+  summaryLineHighlight: {
+    color: '#0F766E',
+    fontWeight: '700',
   },
   primaryButton: {
     width: '100%',

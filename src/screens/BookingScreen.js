@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -17,6 +18,7 @@ import {
   usePet,
 } from '../store/petStore';
 import { getMyPets, savePet } from '../services/petApi';
+import { createBooking } from '../services/bookingApi';
 
 function SelectorGroup({ label, options, value, onSelect, disabledValues = [] }) {
   return (
@@ -62,6 +64,7 @@ export default function BookingScreen() {
   const [selectedSavedPetId, setSelectedSavedPetId] = useState(null);
   const [savePetForNextTime, setSavePetForNextTime] = useState(false);
   const [petsLoading, setPetsLoading] = useState(false);
+  const [bookingLoading, setBookingLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,7 +116,29 @@ export default function BookingScreen() {
         // Save failed silently — don't block the booking
       }
     }
-    dispatch({ type: 'COMPLETE_BOOKING' });
+
+    setBookingLoading(true);
+    try {
+      const result = await createBooking({
+        groomer_id: groomer.id,
+        service_id: state.selectedService?.id ?? state.selectedService?.name,
+        slot_time: state.bookingData.time,
+        pet_name: state.bookingData.petName,
+        pet_breed: state.bookingData.petSize,
+        pet_size: state.bookingData.petSize,
+        notes: state.bookingData.notes,
+      });
+      dispatch({ type: 'COMPLETE_BOOKING' });
+      dispatch({
+        type: 'SET_BOOKING_RESULT',
+        booking_id: result.booking_id,
+        confirmation_code: result.confirmation_code,
+      });
+    } catch {
+      Alert.alert('Booking failed', 'Something went wrong. Please try again.');
+    } finally {
+      setBookingLoading(false);
+    }
   }
 
   if (!groomer) {
@@ -238,8 +263,16 @@ export default function BookingScreen() {
         />
       </View>
 
-      <Pressable style={styles.primaryButton} onPress={handleConfirm}>
-        <Text style={styles.primaryButtonText}>Confirm Booking</Text>
+      <Pressable
+        style={[styles.primaryButton, bookingLoading && styles.primaryButtonDisabled]}
+        onPress={handleConfirm}
+        disabled={bookingLoading}
+      >
+        {bookingLoading ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text style={styles.primaryButtonText}>Confirm Booking</Text>
+        )}
       </Pressable>
     </ScrollView>
   );
@@ -453,6 +486,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 6,
+  },
+  primaryButtonDisabled: {
+    backgroundColor: '#7DD3CC',
   },
   primaryButtonText: {
     color: '#FFFFFF',

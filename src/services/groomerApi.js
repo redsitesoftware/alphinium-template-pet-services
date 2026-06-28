@@ -39,16 +39,33 @@ function normaliseGroomer(raw) {
  * Returns null (not an error) when EXPO_PUBLIC_API_URL is not configured so
  * callers can fall back to static RAW_GROOMERS data without crashing.
  *
+ * Accepts an optional params object whose non-empty/non-undefined values are
+ * appended as query string parameters:
+ *   { service, suburb, max_price, min_rating, date }
+ *
  * Returned shape per groomer matches RAW_GROOMERS in petStore.js:
  *   { id, name, initial, suburb, distance, rating, reviewCount, priceFrom,
  *     badge, badgeColor, petTypes, nextAvailable, services, reviews, tags, photo }
  *
+ * @param {object} [params={}]
  * @returns {Promise<object[]|null>}
  */
-export async function getGroomers() {
+export async function getGroomers(params = {}) {
   if (!API_URL) return null;
 
-  const response = await fetch(`${API_URL}/api/groomers`, {
+  const query = new URLSearchParams();
+  const ALLOWED = ['service', 'suburb', 'max_price', 'min_rating', 'date'];
+  for (const key of ALLOWED) {
+    const val = params[key];
+    if (val !== undefined && val !== null && val !== '' && val !== 'Any' && val !== 'All') {
+      query.set(key, String(val));
+    }
+  }
+
+  const qs = query.toString();
+  const url = qs ? `${API_URL}/api/groomers?${qs}` : `${API_URL}/api/groomers`;
+
+  const response = await fetch(url, {
     headers: buildHeaders(),
   });
 

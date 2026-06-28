@@ -558,7 +558,7 @@ const initState = {
   groomersLoading: false,
   selectedGroomer: null,
   selectedService: null,
-  filters: { petType: 'All', sortBy: 'Distance', priceMax: 'Any', available: 'Any' },
+  filters: { petType: 'All', sortBy: 'Distance', priceMax: 'Any', available: 'Any', service: 'All', suburb: '', minRating: 'Any', date: 'Any' },
   searchText: '',
   bookingData: INITIAL_BOOKING_DATA,
   confirmedBooking: null,
@@ -578,6 +578,36 @@ function getFilteredGroomers(groomers, filters, search) {
 
   if (filters.available === 'Today') {
     list = list.filter((groomer) => groomer.nextAvailable.includes('Today'));
+  }
+
+  if (filters.service && filters.service !== 'All') {
+    list = list.filter((groomer) =>
+      groomer.services.some((s) => s.name === filters.service)
+    );
+  }
+
+  if (filters.suburb) {
+    const suburbQuery = filters.suburb.trim().toLowerCase();
+    // Detect postcode (4-digit number) — filter by proximity distance (<=10km fallback)
+    const isPostcode = /^\d{4}$/.test(suburbQuery);
+    if (isPostcode) {
+      list = list.filter((groomer) => groomer.distance <= 10);
+    } else {
+      list = list.filter((groomer) =>
+        groomer.suburb.toLowerCase().includes(suburbQuery)
+      );
+    }
+  }
+
+  if (filters.minRating && filters.minRating !== 'Any') {
+    const min = parseFloat(filters.minRating);
+    list = list.filter((groomer) => groomer.rating >= min);
+  }
+
+  if (filters.date && filters.date !== 'Any') {
+    list = list.filter((groomer) =>
+      groomer.nextAvailable.toLowerCase().includes(filters.date.toLowerCase())
+    );
   }
 
   if (search) {

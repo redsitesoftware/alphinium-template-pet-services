@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -14,6 +16,7 @@ import {
   getGroomerById,
   usePet,
 } from '../store/petStore';
+import { getMyPets, savePet } from '../services/petApi';
 
 function SelectorGroup({ label, options, value, onSelect, disabledValues = [] }) {
   return (
@@ -55,6 +58,64 @@ export default function BookingScreen() {
   const { state, dispatch } = usePet();
   const groomer = getGroomerById(state.selectedGroomer, state.groomers);
 
+  const [savedPets, setSavedPets] = useState([]);
+  const [selectedSavedPetId, setSelectedSavedPetId] = useState(null);
+  const [savePetForNextTime, setSavePetForNextTime] = useState(false);
+  const [petsLoading, setPetsLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSavedPets() {
+      setPetsLoading(true);
+      try {
+        const pets = await getMyPets();
+        if (!cancelled) {
+          setSavedPets(pets);
+        }
+      } catch {
+        // API unavailable — silently skip; manual entry remains available
+      } finally {
+        if (!cancelled) {
+          setPetsLoading(false);
+        }
+      }
+    }
+
+    loadSavedPets();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function selectSavedPet(pet) {
+    setSelectedSavedPetId(pet.id);
+    dispatch({ type: 'SET_BOOKING_DATA', key: 'petName', val: pet.name ?? '' });
+    dispatch({ type: 'SET_BOOKING_DATA', key: 'petType', val: pet.species ?? state.bookingData.petType });
+    dispatch({ type: 'SET_BOOKING_DATA', key: 'petSize', val: pet.breed ?? state.bookingData.petSize });
+    dispatch({ type: 'SET_BOOKING_DATA', key: 'notes', val: pet.notes ?? '' });
+  }
+
+  async function handleConfirm() {
+    if (savePetForNextTime) {
+      try {
+        await savePet({
+          name: state.bookingData.petName,
+          species: state.bookingData.petType,
+          breed: state.bookingData.petSize,
+          notes: state.bookingData.notes,
+          weight: null,
+          vaccination_status: null,
+          vet_name: null,
+          allergies: null,
+        });
+      } catch {
+        // Save failed silently — don't block the booking
+      }
+    }
+    dispatch({ type: 'COMPLETE_BOOKING' });
+  }
+
   if (!groomer) {
     return null;
   }
@@ -79,9 +140,41 @@ export default function BookingScreen() {
         <Text style={styles.summaryMeta}>Selected time: {state.bookingData.time || groomer.timeSlots[0]}</Text>
       </View>
 
+      {petsLoading && (
+        <View style={styles.petsLoadingRow}>
+          <ActivityIndicator size="small" color="#0F766E" />
+          <Text style={styles.petsLoadingText}>Loading saved pets…</Text>
+        </View>
+      )}
+
+      {!petsLoading && savedPets.length > 0 && (
+        <View style={styles.savedPetsBlock}>
+          <Text style={styles.fieldLabel}>Saved pets</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savedPetsRow}>
+            {savedPets.map((pet) => {
+              const active = selectedSavedPetId === pet.id;
+              return (
+                <Pressable
+                  key={pet.id}
+                  style={[styles.savedPetPill, active && styles.savedPetPillActive]}
+                  onPress={() => selectSavedPet(pet)}
+                >
+                  <Text style={[styles.savedPetPillText, active && styles.savedPetPillTextActive]}>
+                    {pet.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
       <TextInput
         value={state.bookingData.petName}
-        onChangeText={(val) => dispatch({ type: 'SET_BOOKING_DATA', key: 'petName', val })}
+        onChangeText={(val) => {
+          setSelectedSavedPetId(null);
+          dispatch({ type: 'SET_BOOKING_DATA', key: 'petName', val });
+        }}
         placeholder="Pet name"
         placeholderTextColor="#6B8A83"
         style={styles.input}
@@ -132,7 +225,20 @@ export default function BookingScreen() {
         style={[styles.input, styles.notesInput]}
       />
 
-      <Pressable style={styles.primaryButton} onPress={() => dispatch({ type: 'COMPLETE_BOOKING' })}>
+      <View style={styles.savePetRow}>
+        <View style={styles.savePetLabelBlock}>
+          <Text style={styles.savePetLabel}>Save pet for next time</Text>
+          <Text style={styles.savePetSub}>Your pet details will be stored for faster booking.</Text>
+        </View>
+        <Switch
+          value={savePetForNextTime}
+          onValueChange={setSavePetForNextTime}
+          trackColor={{ false: '#CBD5E1', true: '#14B8A6' }}
+          thumbColor="#FFFFFF"
+        />
+      </View>
+
+      <Pressable style={styles.primaryButton} onPress={handleConfirm}>
         <Text style={styles.primaryButtonText}>Confirm Booking</Text>
       </Pressable>
     </ScrollView>
@@ -278,6 +384,68 @@ const styles = StyleSheet.create({
     color: '#0F766E',
     fontSize: 17,
     fontWeight: '800',
+  },
+  petsLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  petsLoadingText: {
+    color: '#285E55',
+    fontSize: 13,
+    marginLeft: 8,
+  },
+  savedPetsBlock: {
+    marginBottom: 16,
+  },
+  savedPetsRow: {
+    paddingBottom: 4,
+  },
+  savedPetPill: {
+    borderRadius: 999,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#B7E4DA',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginRight: 10,
+  },
+  savedPetPillActive: {
+    backgroundColor: '#14B8A6',
+    borderColor: '#14B8A6',
+  },
+  savedPetPillText: {
+    color: '#0F766E',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  savedPetPillTextActive: {
+    color: '#FFFFFF',
+  },
+  savePetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#B7E4DA',
+    padding: 14,
+    marginBottom: 16,
+  },
+  savePetLabelBlock: {
+    flex: 1,
+    marginRight: 12,
+  },
+  savePetLabel: {
+    color: '#164E48',
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  savePetSub: {
+    color: '#5B6B67',
+    fontSize: 12,
   },
   primaryButton: {
     backgroundColor: '#14B8A6',

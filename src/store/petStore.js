@@ -728,7 +728,6 @@ export {
   GROOMERS,
   PET_SIZE_OPTIONS,
   PET_TYPE_OPTIONS,
-  enrichGroomers,
   getFilteredGroomers,
   getGroomerById,
   getGroomerImageUri,

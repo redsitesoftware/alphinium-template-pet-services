@@ -27,4 +27,20 @@ CI=1 npx expo start --web --port 8097 --clear
 npm run build
 ```
 
+## Configuration
+
+Copy `.env.example` to `.env` and set values as needed:
+
+| Variable | Description | Default | Notes |
+|---|---|---|---|
+| `EXPO_PUBLIC_API_URL` | Strapi backend URL | _(empty)_ | Set to your Strapi pod URL; leave empty to use static data |
+| `EXPO_PUBLIC_API_TOKEN` | Strapi bearer token | _(empty)_ | Optional — only needed for restricted Strapi content |
+| `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe publishable key | `pk_test_REPLACE_ME` | Replace with your Stripe test/live key |
+| `EXPO_PUBLIC_APP_NAME` | App display name | `FurSnips` | Shown in the UI and app metadata |
+| `EXPO_PUBLIC_APP_SCHEME` | Deep link scheme | `fursnips` | Must match `scheme` in `app.json` |
+| `EXPO_PUBLIC_OAUTH_PROVIDERS` | Enabled login providers | `github,google,email` | Comma-separated: `github`, `google`, `facebook`, `email` |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Google OAuth web client ID | _(empty)_ | Required for Google social login |
+| `EXPO_PUBLIC_FACEBOOK_APP_ID` | Facebook App ID | _(empty)_ | Required for Facebook social login |
+| `EXPO_PUBLIC_GA_ID` | GA4 Measurement ID | `G-X09N3J8X17` | Override with your own GA property when going live |
+
 > Built with [alphinium](https://alphinium.com) — autonomous AI development agents

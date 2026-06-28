@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   ImageBackground,
   Pressable,
   ScrollView,
@@ -8,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { getGroomerById, getGroomerImageUri, usePet } from '../store/petStore';
+import { getAvailability } from '../services/availabilityApi';
 
 function locationLabel(groomer) {
   if (groomer.distance === 0 || groomer.suburb.includes('Comes to you')) {
@@ -20,9 +22,62 @@ function ratingStars(rating) {
   return `${rating.toFixed(1)} stars`;
 }
 
+function todayIso() {
+  return new Date().toISOString().split('T')[0];
+}
+
+// Build a simple list of the next N date options as { label, value } pairs.
+function buildDateOptions(count = 7) {
+  const options = [];
+  for (let i = 0; i < count; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const value = d.toISOString().split('T')[0];
+    const label = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+    options.push({ label, value });
+  }
+  return options;
+}
+
+const DATE_OPTIONS = buildDateOptions(7);
+
 export default function GroomerDetailScreen() {
   const { state, dispatch } = usePet();
   const groomer = getGroomerById(state.selectedGroomer, state.groomers);
+
+  const [selectedDate, setSelectedDate] = useState(todayIso());
+  const [slots, setSlots] = useState(groomer?.timeSlots ?? []);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!groomer) return;
+    let cancelled = false;
+
+    async function loadSlots() {
+      setSlotsLoading(true);
+      try {
+        const apiSlots = await getAvailability(groomer.id, selectedDate);
+        if (!cancelled) {
+          if (apiSlots && apiSlots.length > 0) {
+            setSlots(apiSlots);
+          } else {
+            // API not configured or returned empty — fall back to static slots
+            setSlots(groomer.timeSlots ?? []);
+          }
+        }
+      } catch {
+        // API unavailable — static fallback
+        if (!cancelled) setSlots(groomer.timeSlots ?? []);
+      } finally {
+        if (!cancelled) setSlotsLoading(false);
+      }
+    }
+
+    loadSlots();
+    return () => {
+      cancelled = true;
+    };
+  }, [groomer?.id, selectedDate]);
 
   if (!groomer) {
     return null;
@@ -82,20 +137,47 @@ export default function GroomerDetailScreen() {
         })}
 
         <Text style={styles.sectionTitle}>Available time slots</Text>
-        <View style={styles.slotGrid}>
-          {groomer.timeSlots.map((slot) => {
-            const active = selectedTime === slot;
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.datePillRow}>
+          {DATE_OPTIONS.map((opt) => {
+            const active = selectedDate === opt.value;
             return (
               <Pressable
-                key={slot}
-                style={[styles.slotPill, active && styles.slotPillActive]}
-                onPress={() => dispatch({ type: 'SELECT_TIME_SLOT', time: slot })}
+                key={opt.value}
+                style={[styles.datePill, active && styles.datePillActive]}
+                onPress={() => setSelectedDate(opt.value)}
               >
-                <Text style={[styles.slotText, active && styles.slotTextActive]}>{slot}</Text>
+                <Text style={[styles.datePillText, active && styles.datePillTextActive]}>{opt.label}</Text>
               </Pressable>
             );
           })}
-        </View>
+        </ScrollView>
+
+        {slotsLoading ? (
+          <View style={styles.slotsLoadingRow}>
+            <ActivityIndicator size="small" color="#0F766E" />
+            <Text style={styles.slotsLoadingText}>Checking availability…</Text>
+          </View>
+        ) : (
+          <View style={styles.slotGrid}>
+            {slots.length > 0 ? (
+              slots.map((slot) => {
+                const active = selectedTime === slot;
+                return (
+                  <Pressable
+                    key={slot}
+                    style={[styles.slotPill, active && styles.slotPillActive]}
+                    onPress={() => dispatch({ type: 'SELECT_TIME_SLOT', time: slot })}
+                  >
+                    <Text style={[styles.slotText, active && styles.slotTextActive]}>{slot}</Text>
+                  </Pressable>
+                );
+              })
+            ) : (
+              <Text style={styles.noSlotsText}>No availability on this date.</Text>
+            )}
+          </View>
+        )}
 
         <View style={styles.reviewCard}>
           <Text style={styles.reviewTitle}>What pet parents say</Text>
@@ -253,6 +335,47 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginBottom: 20,
+  },
+  datePillRow: {
+    paddingBottom: 12,
+  },
+  datePill: {
+    borderRadius: 999,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#B7E4DA',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    marginRight: 10,
+    marginBottom: 12,
+  },
+  datePillActive: {
+    backgroundColor: '#0F766E',
+    borderColor: '#0F766E',
+  },
+  datePillText: {
+    color: '#0F766E',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  datePillTextActive: {
+    color: '#FFFFFF',
+  },
+  slotsLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  slotsLoadingText: {
+    color: '#285E55',
+    fontSize: 13,
+    marginLeft: 8,
+  },
+  noSlotsText: {
+    color: '#6B7280',
+    fontSize: 14,
+    fontStyle: 'italic',
+    marginBottom: 12,
   },
   slotPill: {
     borderRadius: 999,

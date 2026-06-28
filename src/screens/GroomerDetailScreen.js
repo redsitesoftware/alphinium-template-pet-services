@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { getGroomerById, getGroomerImageUri, usePet } from '../store/petStore';
 import { getAvailability } from '../services/availabilityApi';
+import { getGroomerServices } from '../services/catalogApi';
 
 function locationLabel(groomer) {
   if (groomer.distance === 0 || groomer.suburb.includes('Comes to you')) {
@@ -48,6 +49,38 @@ export default function GroomerDetailScreen() {
   const [selectedDate, setSelectedDate] = useState(todayIso());
   const [slots, setSlots] = useState(groomer?.timeSlots ?? []);
   const [slotsLoading, setSlotsLoading] = useState(false);
+
+  const [services, setServices] = useState(groomer?.services ?? []);
+  const [servicesLoading, setServicesLoading] = useState(false);
+
+  // Fetch live services from the catalog API; fall back to static data if unavailable.
+  useEffect(() => {
+    if (!groomer) return;
+    let cancelled = false;
+
+    async function loadServices() {
+      setServicesLoading(true);
+      try {
+        const apiServices = await getGroomerServices(groomer.id);
+        if (!cancelled) {
+          if (apiServices && apiServices.length > 0) {
+            setServices(apiServices);
+          } else {
+            setServices(groomer.services ?? []);
+          }
+        }
+      } catch {
+        if (!cancelled) setServices(groomer.services ?? []);
+      } finally {
+        if (!cancelled) setServicesLoading(false);
+      }
+    }
+
+    loadServices();
+    return () => {
+      cancelled = true;
+    };
+  }, [groomer?.id]);
 
   useEffect(() => {
     if (!groomer) return;
@@ -119,22 +152,49 @@ export default function GroomerDetailScreen() {
         <Text style={styles.about}>{groomer.about}</Text>
 
         <Text style={styles.sectionTitle}>Services</Text>
-        {groomer.services.map((service) => {
-          const selected = selectedServiceName === service.name;
-          return (
-            <Pressable
-              key={service.name}
-              style={[styles.serviceCard, selected && styles.serviceCardSelected]}
-              onPress={() => dispatch({ type: 'SELECT_SERVICE', service: { ...service, groomerId: groomer.id } })}
-            >
-              <View>
-                <Text style={styles.serviceName}>{service.name}</Text>
-                <Text style={styles.serviceMeta}>{service.duration}</Text>
-              </View>
-              <Text style={styles.servicePrice}>${service.price}</Text>
-            </Pressable>
-          );
-        })}
+        {servicesLoading ? (
+          <View style={styles.slotsLoadingRow}>
+            <ActivityIndicator size="small" color="#0F766E" />
+            <Text style={styles.slotsLoadingText}>Loading services…</Text>
+          </View>
+        ) : (
+          services.map((service) => {
+            const selected = selectedServiceName === service.name;
+            const hasSizePricing =
+              service.pricing &&
+              (service.pricing.small != null ||
+                service.pricing.medium != null ||
+                service.pricing.large != null);
+            return (
+              <Pressable
+                key={service.id ?? service.name}
+                style={[styles.serviceCard, selected && styles.serviceCardSelected]}
+                onPress={() => dispatch({ type: 'SELECT_SERVICE', service: { ...service, groomerId: groomer.id } })}
+              >
+                <View style={styles.serviceInfo}>
+                  <Text style={styles.serviceName}>{service.name}</Text>
+                  <Text style={styles.serviceMeta}>{service.duration}</Text>
+                  {hasSizePricing && (
+                    <View style={styles.sizePricingRow}>
+                      {service.pricing.small != null && (
+                        <Text style={styles.sizePricingText}>S ${service.pricing.small}</Text>
+                      )}
+                      {service.pricing.medium != null && (
+                        <Text style={styles.sizePricingText}>M ${service.pricing.medium}</Text>
+                      )}
+                      {service.pricing.large != null && (
+                        <Text style={styles.sizePricingText}>L ${service.pricing.large}</Text>
+                      )}
+                    </View>
+                  )}
+                </View>
+                {!hasSizePricing && service.price != null && (
+                  <Text style={styles.servicePrice}>${service.price}</Text>
+                )}
+              </Pressable>
+            );
+          })
+        )}
 
         <Text style={styles.sectionTitle}>Available time slots</Text>
 
@@ -316,6 +376,10 @@ const styles = StyleSheet.create({
     borderColor: '#14B8A6',
     backgroundColor: '#ECFDF5',
   },
+  serviceInfo: {
+    flex: 1,
+    paddingRight: 8,
+  },
   serviceName: {
     fontSize: 16,
     fontWeight: '800',
@@ -325,6 +389,18 @@ const styles = StyleSheet.create({
   serviceMeta: {
     color: '#5B6B67',
     fontSize: 14,
+  },
+  sizePricingRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 6,
+    gap: 8,
+  },
+  sizePricingText: {
+    color: '#0F766E',
+    fontSize: 13,
+    fontWeight: '700',
+    marginRight: 8,
   },
   servicePrice: {
     color: '#0F766E',

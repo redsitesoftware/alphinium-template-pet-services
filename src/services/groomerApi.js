@@ -35,8 +35,15 @@ function normaliseGroomer(raw) {
 
 /**
  * Fetch all groomer profiles from the API.
+ *
  * Returns null (not an error) when EXPO_PUBLIC_API_URL is not configured so
- * callers can fall back to static data without crashing.
+ * callers can fall back to static RAW_GROOMERS data without crashing.
+ *
+ * Returned shape per groomer matches RAW_GROOMERS in petStore.js:
+ *   { id, name, initial, suburb, distance, rating, reviewCount, priceFrom,
+ *     badge, badgeColor, petTypes, nextAvailable, services, reviews, tags, photo }
+ *
+ * @returns {Promise<object[]|null>}
  */
 export async function getGroomers() {
   if (!API_URL) return null;
@@ -56,7 +63,12 @@ export async function getGroomers() {
 
 /**
  * Fetch a single groomer profile by id.
- * Returns null when EXPO_PUBLIC_API_URL is not configured.
+ *
+ * Returns null when EXPO_PUBLIC_API_URL is not configured so callers can fall
+ * back to a local lookup without crashing.
+ *
+ * @param {string|number} id
+ * @returns {Promise<object|null>}
  */
 export async function getGroomerById(id) {
   if (!API_URL) return null;

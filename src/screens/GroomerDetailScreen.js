@@ -22,7 +22,7 @@ function ratingStars(rating) {
 
 export default function GroomerDetailScreen() {
   const { state, dispatch } = usePet();
-  const groomer = getGroomerById(state.selectedGroomer);
+  const groomer = getGroomerById(state.selectedGroomer, state.groomers);
 
   if (!groomer) {
     return null;

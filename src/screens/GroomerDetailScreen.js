@@ -1,16 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   ImageBackground,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { getGroomerById, getGroomerImageUri, usePet } from '../store/petStore';
 import { getAvailability } from '../services/availabilityApi';
 import { getGroomerServices } from '../services/catalogApi';
+import { getGroomerReviews, submitReview } from '../services/reviewsApi';
 
 function locationLabel(groomer) {
   if (groomer.distance === 0 || groomer.suburb.includes('Comes to you')) {
@@ -21,6 +24,23 @@ function locationLabel(groomer) {
 
 function ratingStars(rating) {
   return `${rating.toFixed(1)} stars`;
+}
+
+function renderStarString(rating, max = 5) {
+  const filled = Math.round(rating);
+  return '★'.repeat(filled) + '☆'.repeat(Math.max(0, max - filled));
+}
+
+function formatDate(isoDate) {
+  try {
+    return new Date(isoDate).toLocaleDateString('en-AU', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch {
+    return '';
+  }
 }
 
 function todayIso() {
@@ -52,6 +72,19 @@ export default function GroomerDetailScreen() {
 
   const [services, setServices] = useState(groomer?.services ?? []);
   const [servicesLoading, setServicesLoading] = useState(false);
+
+  // Reviews state
+  const reviewsData = groomer ? (state.groomerReviews[groomer.id] ?? null) : null;
+  const [reviewsPage, setReviewsPage] = useState(1);
+  const [loadMoreInFlight, setLoadMoreInFlight] = useState(false);
+
+  // Submit form state
+  const [formOpen, setFormOpen] = useState(false);
+  const [starPick, setStarPick] = useState(5);
+  const [reviewText, setReviewText] = useState('');
+  const [submitLoading, setSubmitLoading] = useState(false);
+
+  const isAuthenticated = Boolean(state.authToken) && !state.isGuest;
 
   // Fetch live services from the catalog API; fall back to static data if unavailable.
   useEffect(() => {
@@ -112,8 +145,92 @@ export default function GroomerDetailScreen() {
     };
   }, [groomer?.id, selectedDate]);
 
+  // Load first page of reviews on mount
+  useEffect(() => {
+    if (!groomer) return;
+    let cancelled = false;
+
+    async function loadReviews() {
+      dispatch({ type: 'REVIEWS_LOADING', groomerId: groomer.id });
+      try {
+        const result = await getGroomerReviews(groomer.id, 1, groomer);
+        if (!cancelled) {
+          dispatch({
+            type: 'SET_REVIEWS',
+            groomerId: groomer.id,
+            reviews: result.reviews,
+            total: result.total,
+            hasMore: result.hasMore,
+            append: false,
+          });
+          setReviewsPage(1);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          dispatch({
+            type: 'SET_REVIEWS',
+            groomerId: groomer.id,
+            reviews: [],
+            total: 0,
+            hasMore: false,
+            append: false,
+          });
+        }
+      }
+    }
+
+    loadReviews();
+    return () => { cancelled = true; };
+  }, [groomer?.id]);
+
   if (!groomer) {
     return null;
+  }
+
+  async function handleLoadMore() {
+    if (loadMoreInFlight || !reviewsData?.hasMore) return;
+    setLoadMoreInFlight(true);
+    try {
+      const nextPage = reviewsPage + 1;
+      const result = await getGroomerReviews(groomer.id, nextPage, groomer);
+      dispatch({
+        type: 'SET_REVIEWS',
+        groomerId: groomer.id,
+        reviews: result.reviews,
+        total: result.total,
+        hasMore: result.hasMore,
+        append: true,
+      });
+      setReviewsPage(nextPage);
+    } catch (err) {
+      Alert.alert('Error', 'Could not load more reviews. Please try again.');
+    } finally {
+      setLoadMoreInFlight(false);
+    }
+  }
+
+  async function handleSubmitReview() {
+    if (reviewText.trim().length < 10) {
+      Alert.alert('Review too short', 'Please write at least 10 characters.');
+      return;
+    }
+    setSubmitLoading(true);
+    try {
+      const created = await submitReview(
+        groomer.id,
+        { rating: starPick, text: reviewText.trim(), photos: [] },
+        state.authToken
+      );
+      dispatch({ type: 'ADD_REVIEW', groomerId: groomer.id, review: created });
+      setFormOpen(false);
+      setReviewText('');
+      setStarPick(5);
+      Alert.alert('Thanks for your review!', 'Your review has been submitted.');
+    } catch (err) {
+      Alert.alert('Submission failed', err.message ?? 'Please try again.');
+    } finally {
+      setSubmitLoading(false);
+    }
   }
 
   const selectedServiceName = state.selectedService?.groomerId === groomer.id ? state.selectedService.name : null;
@@ -239,11 +356,95 @@ export default function GroomerDetailScreen() {
           </View>
         )}
 
-        <View style={styles.reviewCard}>
-          <Text style={styles.reviewTitle}>What pet parents say</Text>
-          <Text style={styles.reviewCopy}>“{groomer.reviews[0]?.text}”</Text>
-          <Text style={styles.reviewAuthor}>— {groomer.reviews[0]?.name}</Text>
-        </View>
+        {/* ── Reviews section ── */}
+        <Text style={styles.sectionTitle}>
+          Reviews{reviewsData && reviewsData.total > 0 ? ` (${reviewsData.total})` : ''}
+        </Text>
+
+        {reviewsData?.loading && !(reviewsData?.reviews?.length) ? (
+          <View style={styles.slotsLoadingRow}>
+            <ActivityIndicator size="small" color="#0F766E" />
+            <Text style={styles.slotsLoadingText}>Loading reviews…</Text>
+          </View>
+        ) : (reviewsData?.reviews ?? []).length === 0 ? (
+          <Text style={styles.noReviewsText}>No reviews yet — be the first!</Text>
+        ) : (
+          <>
+            {(reviewsData.reviews).map((review) => (
+              <View key={review.id} style={styles.reviewItemCard}>
+                <View style={styles.reviewItemHeader}>
+                  <Text style={styles.reviewStars}>{renderStarString(review.rating)}</Text>
+                  <Text style={styles.reviewAuthorName}>{review.author}</Text>
+                  <Text style={styles.reviewDate}>{formatDate(review.date)}</Text>
+                </View>
+                <Text style={styles.reviewItemText}>{review.text}</Text>
+              </View>
+            ))}
+
+            {reviewsData.hasMore && (
+              <Pressable style={styles.loadMoreButton} onPress={handleLoadMore} disabled={loadMoreInFlight}>
+                {loadMoreInFlight ? (
+                  <ActivityIndicator size="small" color="#0F766E" />
+                ) : (
+                  <Text style={styles.loadMoreText}>Load more</Text>
+                )}
+              </Pressable>
+            )}
+          </>
+        )}
+
+        {/* ── Submit review section ── */}
+        {isAuthenticated ? (
+          <View style={styles.submitSection}>
+            <Pressable
+              style={styles.writeReviewToggle}
+              onPress={() => setFormOpen((v) => !v)}
+            >
+              <Text style={styles.writeReviewToggleText}>
+                {formOpen ? '✕ Cancel' : '✏️ Write a review'}
+              </Text>
+            </Pressable>
+
+            {formOpen && (
+              <View style={styles.reviewForm}>
+                <Text style={styles.formLabel}>Your rating</Text>
+                <View style={styles.starPicker}>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Pressable key={n} onPress={() => setStarPick(n)} style={styles.starButton}>
+                      <Text style={[styles.starPickText, n <= starPick && styles.starPickActive]}>
+                        ★
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                <Text style={styles.formLabel}>Your review</Text>
+                <TextInput
+                  style={styles.reviewInput}
+                  multiline
+                  placeholder="Share your experience (min. 10 characters)…"
+                  placeholderTextColor="#9CA3AF"
+                  value={reviewText}
+                  onChangeText={setReviewText}
+                />
+
+                <Pressable
+                  style={[styles.submitButton, submitLoading && styles.submitButtonDisabled]}
+                  onPress={handleSubmitReview}
+                  disabled={submitLoading}
+                >
+                  {submitLoading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.submitButtonText}>Submit review</Text>
+                  )}
+                </Pressable>
+              </View>
+            )}
+          </View>
+        ) : (
+          <Text style={styles.signInPrompt}>Sign in to leave a review</Text>
+        )}
 
         <Pressable
           style={styles.primaryButton}
@@ -508,5 +709,139 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800',
+  },
+  // Reviews list
+  noReviewsText: {
+    color: '#6B7280',
+    fontSize: 14,
+    fontStyle: 'italic',
+    marginBottom: 16,
+  },
+  reviewItemCard: {
+    backgroundColor: '#F8FFFD',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#D3F0E8',
+    marginBottom: 10,
+  },
+  reviewItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginBottom: 6,
+    gap: 8,
+  },
+  reviewStars: {
+    color: '#F59E0B',
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  reviewAuthorName: {
+    color: '#111827',
+    fontWeight: '700',
+    fontSize: 13,
+    flex: 1,
+  },
+  reviewDate: {
+    color: '#9CA3AF',
+    fontSize: 12,
+  },
+  reviewItemText: {
+    color: '#374151',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  loadMoreButton: {
+    alignItems: 'center',
+    paddingVertical: 10,
+    marginBottom: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#B7E4DA',
+    backgroundColor: '#ECFDF5',
+  },
+  loadMoreText: {
+    color: '#0F766E',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  // Submit review
+  submitSection: {
+    marginBottom: 20,
+  },
+  writeReviewToggle: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 999,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#14B8A6',
+    marginBottom: 10,
+  },
+  writeReviewToggleText: {
+    color: '#0F766E',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  reviewForm: {
+    backgroundColor: '#F8FFFD',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#D3F0E8',
+  },
+  formLabel: {
+    color: '#164E48',
+    fontWeight: '700',
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  starPicker: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  starButton: {
+    paddingHorizontal: 4,
+  },
+  starPickText: {
+    fontSize: 28,
+    color: '#D1D5DB',
+  },
+  starPickActive: {
+    color: '#F59E0B',
+  },
+  reviewInput: {
+    borderWidth: 1,
+    borderColor: '#B7E4DA',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    color: '#111827',
+    minHeight: 90,
+    textAlignVertical: 'top',
+    marginBottom: 14,
+    backgroundColor: '#FFFFFF',
+  },
+  submitButton: {
+    backgroundColor: '#14B8A6',
+    paddingVertical: 13,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 15,
+  },
+  signInPrompt: {
+    color: '#9CA3AF',
+    fontSize: 14,
+    fontStyle: 'italic',
+    marginBottom: 20,
   },
 });

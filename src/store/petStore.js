@@ -563,6 +563,8 @@ const initState = {
   searchText: '',
   bookingData: INITIAL_BOOKING_DATA,
   confirmedBooking: null,
+  // keyed by groomerId: { reviews: [], total: 0, hasMore: false, loading: false }
+  groomerReviews: {},
 };
 
 function getFilteredGroomers(groomers, filters, search) {
@@ -725,6 +727,49 @@ function reducer(state, action) {
       return { ...state, groomersLoading: action.loading };
     case 'SET_GROOMERS':
       return { ...state, groomers: action.groomers, groomersLoading: false };
+    case 'REVIEWS_LOADING': {
+      const existing = state.groomerReviews[action.groomerId] ?? { reviews: [], total: 0, hasMore: false };
+      return {
+        ...state,
+        groomerReviews: {
+          ...state.groomerReviews,
+          [action.groomerId]: { ...existing, loading: true },
+        },
+      };
+    }
+    case 'SET_REVIEWS': {
+      const prev = state.groomerReviews[action.groomerId] ?? { reviews: [] };
+      const reviews = action.append
+        ? [...(prev.reviews ?? []), ...action.reviews]
+        : action.reviews;
+      return {
+        ...state,
+        groomerReviews: {
+          ...state.groomerReviews,
+          [action.groomerId]: {
+            reviews,
+            total: action.total ?? reviews.length,
+            hasMore: action.hasMore ?? false,
+            loading: false,
+          },
+        },
+      };
+    }
+    case 'ADD_REVIEW': {
+      const current = state.groomerReviews[action.groomerId] ?? { reviews: [], total: 0, hasMore: false };
+      return {
+        ...state,
+        groomerReviews: {
+          ...state.groomerReviews,
+          [action.groomerId]: {
+            ...current,
+            reviews: [action.review, ...(current.reviews ?? [])],
+            total: (current.total ?? 0) + 1,
+            loading: false,
+          },
+        },
+      };
+    }
     default:
       return state;
   }

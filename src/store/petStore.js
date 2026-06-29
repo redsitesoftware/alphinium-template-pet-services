@@ -563,6 +563,9 @@ const initState = {
   searchText: '',
   bookingData: INITIAL_BOOKING_DATA,
   confirmedBooking: null,
+  adminDate: new Date().toISOString().slice(0, 10),
+  adminAppointments: [],
+  adminLoading: false,
 };
 
 function getFilteredGroomers(groomers, filters, search) {
@@ -725,6 +728,19 @@ function reducer(state, action) {
       return { ...state, groomersLoading: action.loading };
     case 'SET_GROOMERS':
       return { ...state, groomers: action.groomers, groomersLoading: false };
+    case 'SET_ADMIN_DATE':
+      return { ...state, adminDate: action.date };
+    case 'SET_ADMIN_APPOINTMENTS':
+      return { ...state, adminAppointments: action.appointments, adminLoading: false };
+    case 'ADMIN_LOADING':
+      return { ...state, adminLoading: true };
+    case 'UPDATE_APPOINTMENT_STATUS':
+      return {
+        ...state,
+        adminAppointments: state.adminAppointments.map((appt) =>
+          appt.id === action.id ? { ...appt, status: action.status } : appt
+        ),
+      };
     default:
       return state;
   }

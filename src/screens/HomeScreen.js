@@ -287,6 +287,13 @@ export default function HomeScreen() {
         <Text style={styles.footerTitle}>Why pet parents love Pawfect</Text>
         <Text style={styles.footerCopy}>Instant availability, transparent pricing, polished profiles, and a premium booking flow built for release day.</Text>
       </View>
+
+      <Pressable
+        style={styles.portalButton}
+        onPress={() => dispatch({ type: 'SET_PHASE', phase: 'admin' })}
+      >
+        <Text style={styles.portalButtonText}>Groomer Portal →</Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -588,5 +595,20 @@ const styles = StyleSheet.create({
     color: '#285E55',
     fontSize: 14,
     lineHeight: 21,
+  },
+  portalButton: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#14B8A6',
+    alignItems: 'center',
+  },
+  portalButtonText: {
+    color: '#0F766E',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

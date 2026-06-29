@@ -54,6 +54,22 @@ export default function ConfirmationScreen() {
         <Text style={styles.summaryLine}>Service: {booking.service?.name}</Text>
         <Text style={styles.summaryLine}>Time: {booking.bookingData?.time}</Text>
         <Text style={styles.summaryLine}>Pet name: {booking.bookingData?.petName || 'Your pet'}</Text>
+        {!!booking.booking_id && (
+          <Text style={styles.summaryLine}>Booking ID: {booking.booking_id}</Text>
+        )}
+        {!!booking.confirmation_code && (
+          <Text style={[styles.summaryLine, styles.summaryLineHighlight]}>Confirmation code: {booking.confirmation_code}</Text>
+        )}
+        {booking.payment_amount != null && (
+          <Text style={styles.summaryLine}>
+            Payment: AUD ${Number(booking.payment_amount).toFixed(2)} ({booking.bookingData?.payment_amount_type === 'deposit' ? 'deposit' : 'full payment'})
+          </Text>
+        )}
+        {!!booking.payment_status && (
+          <Text style={[styles.summaryLine, booking.payment_status === 'succeeded' ? styles.summaryLineSuccess : styles.summaryLinePending]}>
+            Status: {booking.payment_status === 'succeeded' ? 'Paid ✓' : 'Pending'}
+          </Text>
+        )}
       </View>
 
       <Pressable style={styles.primaryButton} onPress={() => dispatch({ type: 'RESET_BOOKING' })}>
@@ -122,6 +138,18 @@ const styles = StyleSheet.create({
     color: '#374151',
     fontSize: 15,
     marginBottom: 8,
+  },
+  summaryLineHighlight: {
+    color: '#0F766E',
+    fontWeight: '700',
+  },
+  summaryLineSuccess: {
+    color: '#059669',
+    fontWeight: '700',
+  },
+  summaryLinePending: {
+    color: '#D97706',
+    fontWeight: '700',
   },
   primaryButton: {
     width: '100%',

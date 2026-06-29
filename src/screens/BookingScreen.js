@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -17,6 +18,8 @@ import {
   usePet,
 } from '../store/petStore';
 import { getMyPets, savePet } from '../services/petApi';
+import { createBooking } from '../services/bookingApi';
+import { createPaymentIntent } from '../services/paymentApi';
 
 function SelectorGroup({ label, options, value, onSelect, disabledValues = [] }) {
   return (
@@ -62,6 +65,7 @@ export default function BookingScreen() {
   const [selectedSavedPetId, setSelectedSavedPetId] = useState(null);
   const [savePetForNextTime, setSavePetForNextTime] = useState(false);
   const [petsLoading, setPetsLoading] = useState(false);
+  const [bookingLoading, setBookingLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,7 +117,46 @@ export default function BookingScreen() {
         // Save failed silently — don't block the booking
       }
     }
-    dispatch({ type: 'COMPLETE_BOOKING' });
+
+    setBookingLoading(true);
+    try {
+      const result = await createBooking({
+        groomer_id: groomer.id,
+        service_id: state.selectedService?.id ?? state.selectedService?.name,
+        slot_time: state.bookingData.time,
+        pet_name: state.bookingData.petName,
+        pet_breed: state.bookingData.petSize,
+        pet_size: state.bookingData.petSize,
+        notes: state.bookingData.notes,
+      });
+      dispatch({ type: 'COMPLETE_BOOKING' });
+      dispatch({
+        type: 'SET_BOOKING_RESULT',
+        booking_id: result.booking_id,
+        confirmation_code: result.confirmation_code,
+      });
+
+      const servicePrice = state.selectedService?.price ?? groomer.services[0]?.price ?? 0;
+      const payResult = await createPaymentIntent(
+        result.booking_id,
+        state.bookingData.payment_amount_type,
+        servicePrice
+      );
+      dispatch({
+        type: 'SET_PAYMENT_RESULT',
+        payment_status: payResult.payment_status,
+        payment_amount: payResult.amount,
+        currency: payResult.currency,
+      });
+    } catch (err) {
+      const isPaymentError = err?.message?.includes('createPaymentIntent');
+      Alert.alert(
+        isPaymentError ? 'Payment failed' : 'Booking failed',
+        isPaymentError ? 'Payment could not be processed. Please try again.' : 'Something went wrong. Please try again.'
+      );
+    } finally {
+      setBookingLoading(false);
+    }
   }
 
   if (!groomer) {
@@ -238,8 +281,37 @@ export default function BookingScreen() {
         />
       </View>
 
-      <Pressable style={styles.primaryButton} onPress={handleConfirm}>
-        <Text style={styles.primaryButtonText}>Confirm Booking</Text>
+      <View style={styles.paymentSelectorBlock}>
+        <Text style={styles.fieldLabel}>Payment option</Text>
+        <View style={styles.paymentPillRow}>
+          {[
+            { label: `50% Deposit — $${Math.round((state.selectedService?.price ?? groomer.services[0]?.price ?? 0) * 0.5)}`, value: 'deposit' },
+            { label: `Full Payment — $${state.selectedService?.price ?? groomer.services[0]?.price ?? 0}`, value: 'full' },
+          ].map((option) => {
+            const active = (state.bookingData.payment_amount_type ?? 'full') === option.value;
+            return (
+              <Pressable
+                key={option.value}
+                style={[styles.paymentPill, active && styles.paymentPillActive]}
+                onPress={() => dispatch({ type: 'SET_BOOKING_DATA', key: 'payment_amount_type', val: option.value })}
+              >
+                <Text style={[styles.paymentPillText, active && styles.paymentPillTextActive]}>{option.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      <Pressable
+        style={[styles.primaryButton, bookingLoading && styles.primaryButtonDisabled]}
+        onPress={handleConfirm}
+        disabled={bookingLoading}
+      >
+        {bookingLoading ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text style={styles.primaryButtonText}>Confirm Booking</Text>
+        )}
       </Pressable>
     </ScrollView>
   );
@@ -454,9 +526,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 6,
   },
+  primaryButtonDisabled: {
+    backgroundColor: '#7DD3CC',
+  },
   primaryButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
+    fontWeight: '800',
+  },
+  paymentSelectorBlock: {
+    marginBottom: 16,
+  },
+  paymentPillRow: {
+    flexDirection: 'column',
+    gap: 10,
+  },
+  paymentPill: {
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#B7E4DA',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  paymentPillActive: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#14B8A6',
+  },
+  paymentPillText: {
+    color: '#0F766E',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  paymentPillTextActive: {
+    color: '#0F766E',
     fontWeight: '800',
   },
 });

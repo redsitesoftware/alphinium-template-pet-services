@@ -511,6 +511,7 @@ const INITIAL_BOOKING_DATA = {
   petSize: 'Small',
   time: '',
   notes: '',
+  payment_amount_type: 'full',
 };
 
 function buildAbout(groomer) {
@@ -681,9 +682,37 @@ function reducer(state, action) {
           groomer,
           service: state.selectedService,
           bookingData: state.bookingData,
+          booking_id: null,
+          confirmation_code: null,
+          payment_status: null,
+          payment_amount: null,
+          currency: 'aud',
         },
       };
     }
+    case 'SET_BOOKING_RESULT':
+      return {
+        ...state,
+        confirmedBooking: state.confirmedBooking
+          ? {
+              ...state.confirmedBooking,
+              booking_id: action.booking_id ?? null,
+              confirmation_code: action.confirmation_code ?? null,
+            }
+          : state.confirmedBooking,
+      };
+    case 'SET_PAYMENT_RESULT':
+      return {
+        ...state,
+        confirmedBooking: state.confirmedBooking
+          ? {
+              ...state.confirmedBooking,
+              payment_status: action.payment_status ?? null,
+              payment_amount: action.payment_amount ?? null,
+              currency: action.currency ?? 'aud',
+            }
+          : state.confirmedBooking,
+      };
     case 'RESET_BOOKING':
       return {
         ...state,

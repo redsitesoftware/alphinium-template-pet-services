@@ -563,6 +563,8 @@ const initState = {
   searchText: '',
   bookingData: INITIAL_BOOKING_DATA,
   confirmedBooking: null,
+  myBookings: { upcoming: [], past: [] },
+  myBookingsLoading: false,
 };
 
 function getFilteredGroomers(groomers, filters, search) {
@@ -725,6 +727,29 @@ function reducer(state, action) {
       return { ...state, groomersLoading: action.loading };
     case 'SET_GROOMERS':
       return { ...state, groomers: action.groomers, groomersLoading: false };
+    case 'MY_BOOKINGS_LOADING':
+      return { ...state, myBookingsLoading: true };
+    case 'SET_MY_BOOKINGS':
+      return { ...state, myBookings: action.myBookings, myBookingsLoading: false };
+    case 'UPDATE_MY_BOOKING': {
+      const updateInList = (list) =>
+        list.map((b) => (b.id === action.booking.id ? { ...b, ...action.booking } : b));
+      return {
+        ...state,
+        myBookings: {
+          upcoming: updateInList(state.myBookings.upcoming),
+          past: updateInList(state.myBookings.past),
+        },
+      };
+    }
+    case 'REMOVE_MY_BOOKING':
+      return {
+        ...state,
+        myBookings: {
+          ...state.myBookings,
+          upcoming: state.myBookings.upcoming.filter((b) => b.id !== action.bookingId),
+        },
+      };
     default:
       return state;
   }

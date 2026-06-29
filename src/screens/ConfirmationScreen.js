@@ -56,12 +56,12 @@ export default function ConfirmationScreen() {
         <Text style={styles.summaryLine}>Pet name: {booking.bookingData?.petName || 'Your pet'}</Text>
       </View>
 
-      <Pressable style={styles.primaryButton} onPress={() => dispatch({ type: 'RESET_BOOKING' })}>
+      <Pressable style={styles.primaryButton} onPress={() => dispatch({ type: 'SET_PHASE', phase: 'mybookings' })}>
         <Text style={styles.primaryButtonText}>View My Bookings</Text>
       </Pressable>
 
-      <Pressable style={styles.secondaryButton} onPress={shareBooking}>
-        <Text style={styles.secondaryButtonText}>Share Booking</Text>
+      <Pressable style={styles.secondaryButton} onPress={() => dispatch({ type: 'RESET_BOOKING' })}>
+        <Text style={styles.secondaryButtonText}>Book Again</Text>
       </Pressable>
 
       <Text style={styles.confettiFooter}>See you at grooming time!</Text>

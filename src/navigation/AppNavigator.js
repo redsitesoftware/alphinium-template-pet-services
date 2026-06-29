@@ -4,6 +4,7 @@ import HomeScreen from '../screens/HomeScreen';
 import GroomerDetailScreen from '../screens/GroomerDetailScreen';
 import BookingScreen from '../screens/BookingScreen';
 import ConfirmationScreen from '../screens/ConfirmationScreen';
+import MyBookingsScreen from '../screens/MyBookingsScreen';
 import { usePet } from '../store/petStore';
 
 export default function AppNavigator() {
@@ -35,6 +36,10 @@ export default function AppNavigator() {
 
   if (state.phase === 'confirm') {
     return <ConfirmationScreen />;
+  }
+
+  if (state.phase === 'mybookings') {
+    return <MyBookingsScreen />;
   }
 
   return <HomeScreen />;

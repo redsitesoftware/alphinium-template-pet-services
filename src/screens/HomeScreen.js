@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -35,7 +35,25 @@ const PRICE_OPTIONS = [
 
 const AVAILABILITY_OPTIONS = [
   { label: 'Any', value: 'Any' },
-  { label: 'Today only', value: 'Today' },
+  { label: 'Today', value: 'Today' },
+  { label: 'Tomorrow', value: 'Tomorrow' },
+  { label: 'This Week', value: 'This Week' },
+];
+
+const SERVICE_OPTIONS = [
+  { label: 'All', value: 'All' },
+  { label: 'Bath & Brush', value: 'Bath & Brush' },
+  { label: 'Full Groom', value: 'Full Groom' },
+  { label: 'Nail Trim', value: 'Nail Trim' },
+  { label: 'Dental Clean', value: 'Dental Clean' },
+  { label: 'De-shed', value: 'De-shed' },
+];
+
+const RATING_OPTIONS = [
+  { label: 'Any', value: 'Any' },
+  { label: '4.5+', value: '4.5' },
+  { label: '4.7+', value: '4.7' },
+  { label: '4.9+', value: '4.9' },
 ];
 
 function locationLabel(groomer) {
@@ -71,6 +89,21 @@ function FilterGroup({ title, options, selected, onSelect }) {
           );
         })}
       </View>
+    </View>
+  );
+}
+
+function SuburbInput({ value, onChange }) {
+  return (
+    <View style={styles.filterGroup}>
+      <Text style={styles.filterTitle}>Location</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChange}
+        placeholder="Suburb or postcode..."
+        placeholderTextColor="#6B8A83"
+        style={styles.suburbInput}
+      />
     </View>
   );
 }
@@ -119,13 +152,16 @@ function GroomerCard({ groomer, onOpen }) {
 export default function HomeScreen() {
   const { state, dispatch } = usePet();
 
+  const filtersRef = useRef(state.filters);
+  filtersRef.current = state.filters;
+
   useEffect(() => {
     let cancelled = false;
 
     async function loadGroomers() {
       dispatch({ type: 'GROOMERS_LOADING', loading: true });
       try {
-        const apiGroomers = await getGroomers();
+        const apiGroomers = await getGroomers(filtersRef.current);
         if (!cancelled && apiGroomers && apiGroomers.length > 0) {
           dispatch({ type: 'SET_GROOMERS', groomers: enrichGroomers(apiGroomers) });
         } else {
@@ -140,11 +176,12 @@ export default function HomeScreen() {
       }
     }
 
-    loadGroomers();
+    const timer = setTimeout(loadGroomers, 400);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
-  }, [dispatch]);
+  }, [dispatch, state.filters]);
 
   const filteredGroomers = useMemo(
     () => getFilteredGroomers(state.groomers, state.filters, state.searchText),
@@ -194,6 +231,22 @@ export default function HomeScreen() {
           onSelect={(val) => dispatch({ type: 'SET_FILTER', key: 'petType', val })}
         />
         <FilterGroup
+          title="Service"
+          options={SERVICE_OPTIONS}
+          selected={state.filters.service}
+          onSelect={(val) => dispatch({ type: 'SET_FILTER', key: 'service', val })}
+        />
+        <SuburbInput
+          value={state.filters.suburb}
+          onChange={(val) => dispatch({ type: 'SET_FILTER', key: 'suburb', val })}
+        />
+        <FilterGroup
+          title="Min Rating"
+          options={RATING_OPTIONS}
+          selected={state.filters.minRating}
+          onSelect={(val) => dispatch({ type: 'SET_FILTER', key: 'minRating', val })}
+        />
+        <FilterGroup
           title="Sort"
           options={SORT_OPTIONS}
           selected={state.filters.sortBy}
@@ -208,8 +261,8 @@ export default function HomeScreen() {
         <FilterGroup
           title="Availability"
           options={AVAILABILITY_OPTIONS}
-          selected={state.filters.available}
-          onSelect={(val) => dispatch({ type: 'SET_FILTER', key: 'available', val })}
+          selected={state.filters.date}
+          onSelect={(val) => dispatch({ type: 'SET_FILTER', key: 'date', val })}
         />
       </ScrollView>
 
@@ -373,6 +426,17 @@ const styles = StyleSheet.create({
   },
   filterPillTextActive: {
     color: '#FFFFFF',
+  },
+  suburbInput: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#CDEEE5',
+    backgroundColor: '#F5FFFC',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#1F2937',
+    minWidth: 180,
   },
   resultsCount: {
     fontSize: 18,
